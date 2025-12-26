@@ -1,13 +1,7 @@
-# 忽略虚拟环境 (这是你电脑特有的，别人不需要)
-venv/
 .venv/
-
-# 忽略数据文件 (保护隐私！保护隐私！保护隐私！)
-data/
-*.zip
-*.pdf
-*.xlsx
-
-# 忽略 PyCharm 的配置缓存
-.idea/
 __pycache__/
+.idea/
+.DS_Store
+data/raw/*.zip
+data/processed/
+data/*.xlsx
