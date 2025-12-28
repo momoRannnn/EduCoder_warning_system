@@ -5,24 +5,28 @@
 
 说明：
     paddlepaddle 是轻量化的ocr 库，足以完成本项目的任务，github 链接：https://github.com/PaddlePaddle/PaddleOCR
+    过程中直接把 pdf 文件转化为矩阵数据传给内存，而不存储在硬盘中，提高速度
     采用了正则表达式来准确提取出时间，不会受到干扰
 
 Dependencies:
     paddleocr：图像识别模型
     pdfplumber：pdf 转换成 image
     re：正则表达式提取
+    numpy:把 image 转化为矩阵
 """
-
-import os
+import warnings
+# 强力屏蔽 ccache 相关的警告
+warnings.filterwarnings("ignore", message=".*ccache.*")
 import logging
 import re
 import pdfplumber
+import numpy as np
 from paddleocr import PaddleOCR
 
 logging.getLogger("ppocr").setLevel(logging.ERROR)# 减少状态输出，防止刷屏，保持安静
 
-# 初始化 ocr 的设定
-ocr_model = PaddleOCR(use_angle_cls=True, lang='ch', use_gpu=False, show_log=False) # lang=ch：语言是中文；use_gpu:MacBook 配置 gpu 太麻烦了，cpu 完全够；use_angle_cls=True：防止有些图片是竖过来的
+# 初始化模型的设定
+ocr_model = PaddleOCR(use_angle_cls=True, lang='ch', use_gpu=False, show_log=False)
 
 
 def ocr_process_pdf(pdf_path):
@@ -41,20 +45,18 @@ def ocr_process_pdf(pdf_path):
     # 默认返回值
     result = {"状态": "OCR失败", "耗时": "0", "识别方式": "OCR-AI"}
 
-    temp_path = f"temp_{os.path.basename(pdf_path)}.jpg"
-
     try:
         with pdfplumber.open(pdf_path) as pdf:
             if not pdf.pages:
                 return result
-
-            # 把 pdf 的第一页变成 image 供 ocr 模型使用（只有第一页有我们需要的数据）
             page = pdf.pages[0]
-            page.to_image(resolution=150).save(temp_path)# 像素密度设置成 150，提升速度
-            ocr_res = ocr_model.ocr(temp_path, cls=True)
+            # 将 pdf 文件转化为 image，再把 image 转化为矩阵传给内存
+            img = page.to_image(resolution=150).original
+            img_np = np.array(img)
+
+            ocr_res = ocr_model.ocr(img_np, cls=True)
 
             if ocr_res and ocr_res[0]:
-                # 把ocr 返回的文字列表转化为一个长字符串
                 all_texts = [line[1][0] for line in ocr_res[0]]
                 full_text = " ".join(all_texts)
 
@@ -83,8 +85,7 @@ def ocr_process_pdf(pdf_path):
                     if "秒" in val or "天" in val:
                         best_match = val
                         break
-                    if not best_match:
-                        best_match = val
+                    if not best_match: best_match = val
 
                 if best_match:
                     result["耗时"] = best_match
@@ -97,10 +98,6 @@ def ocr_process_pdf(pdf_path):
                             result["耗时"] = val
 
     except Exception as e:
-        pass
-    finally:
-        # 清理临时文件
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
+        print(f"[OCR Error] {e}")
 
     return result

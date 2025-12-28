@@ -6,6 +6,7 @@
 说明：
     pdfplumer 阅读文本的速度极快，如果 pdf 文件是文本型，将大大减少时间，实在不行了再调用 ocr 模型
     同时把它叫做 handler 而不是 processor 是因为它会像人一样根据特定的策略来处理 pdf
+    并且会根据用户电脑的核心类型，进行多进程的分配任务，来加快识别速度
 
 依赖关系：
     - pdfplumer：用于阅读文本型 pdf
@@ -21,10 +22,10 @@ def parse_pdf_report(pdf_path: str) -> dict:
     函数功能：
         阅读 pdf 文件，提取其中的文本数据
 
-    参数：
+    Args：
         - pdf_path (str): pdf 文件的路径
 
-    返回值：
+    Returns：
         dict: 包含了状态和持续时间的dict
     """
     # 默认data
@@ -80,3 +81,31 @@ def parse_pdf_report(pdf_path: str) -> dict:
         data["状态"] = "Error"
 
     return data
+
+
+def enrich_data(file_info: dict) -> dict:
+    """
+    函数功能：
+        多进程的执行单元（Wrapper）。
+        ProcessPoolExecutor 会直接调用此函数，它是本模块对外的多进程接口。
+
+    Args:
+        file_info (dict): raw_file_processor中得到的包含 '文件路径'、'姓名' 等基础信息的字典。
+
+    Returns:
+        dict: 更新了 '状态' 和 '耗时' 的字典。将学生基本信息和学生做题情况结合到一起
+    """
+    try:
+        pdf_path = file_info["文件路径"]
+
+        # 调用本模块内部的核心解析逻辑
+        result_data = parse_pdf_report(pdf_path)
+
+        # 将解析结果合并回原始信息
+        file_info.update(result_data)
+        return file_info
+
+    except Exception as e:
+        # 进程级容错：确保单个文件的失败不会导致整个进程池崩溃
+        file_info.update({"状态": "系统错误", "异常备注": str(e)})
+        return file_info

@@ -1,15 +1,44 @@
 # src/utils.py
 """
 模块功能：
-    本模块类似于一个工具箱，里面包含了一些小工具
-    1.打印动态进度条
-    2.把数据录入到 excel 文件（暂时演示功能）
+    本模块类似于一个工具箱 (Utility Belt)，存放通用的、不依赖于具体业务逻辑的底层工具函数。
+    1. 打印动态进度条 (UI)
+    2. 文本编码自适应修复 (String Processing)
 
 依赖关系：
-    sys：打印进度条
+    sys: 打印进度条
 """
 
 import sys
+
+def fix_text_encoding(text):
+    """
+    函数功能：
+        自适应编码修复函数：尝试多种解码方式，直到找到可读的中文。
+
+    Args:
+        text (str): 可能包含乱码的原始字符串。
+
+    Returns:
+        str: 修复后的字符串。如果所有解码尝试都失败，则原样返回。
+    """
+    try:
+        # 0. 如果本身就是正常的 unicode 字符串，先尝试编码回 bytes
+        # Python 的 zipfile 有时会把文件名读成 cp437 编码的字符串
+        raw_bytes = text.encode('cp437')
+    except:
+        return text # 如果无法编码回 cp437，说明它可能已经被正确处理过，或者也是乱码
+
+    encodings = ['utf-8', 'gbk'] # 定义尝试列表：优先尝试 UTF-8 (Mac/Linux)，然后尝试 GBK (Windows)
+
+    for enc in encodings:
+        try:
+            return raw_bytes.decode(enc)
+        except:
+            continue
+
+    return text # 如果都失败了，返回原始乱码，至少比报错强
+
 
 def print_progress(iteration, total, current_item="", bar_length=40):
     """

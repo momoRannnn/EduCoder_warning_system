@@ -1,47 +1,19 @@
 #src/raw_file_processor.py
 """
 模块功能：
-    这个模块主要负责解压文件，并根据文件夹结构构建基本的学生信息框架（班级，学号，姓名）
-
-说明：
-    因为我开发的平台是 mac，和 Windows 平台会有不兼容的情况，为了增加兼容性，我添加了编码修复函数，防止乱码的出现
+    数据摄入层 (Ingest Layer)。
+    主要负责解压原始文件，并扫描文件结构，构建最基础的学生信息列表（班级，学号，姓名，文件路径）。
 
 依赖关系：
-    os:文件路径操作
-    zipfile：解压文件
-    shutil：清理文件夹
+    os: 文件路径操作
+    zipfile: 解压文件
+    shutil: 清理文件夹
+    src.utils: 调用文本修复工具
 """
 import os
 import zipfile
 import shutil
-
-
-def fix_text_encoding(text):
-    """
-    函数功能：
-        自适应编码修复函数：尝试多种解码方式，直到找到可读的中文
-    Args:
-        text (str): 可能包含乱码的原始字符串。
-
-    Returns:
-        str: 修复后的字符串。如果所有解码尝试都失败，则原样返回。
-    """
-    try:
-        # 0. 如果本身就是正常的 unicode 字符串，先尝试编码回 bytes
-        # Python 的 zipfile 有时会把文件名读成 cp437 编码的字符串
-        raw_bytes = text.encode('cp437')
-    except:
-        return text# 如果无法编码回 cp437，说明它可能已经被正确处理过，或者也是乱码
-
-    encodings = ['utf-8', 'gbk']# 定义尝试列表：优先尝试 UTF-8 (Mac/Linux)，然后尝试 GBK (Windows)
-
-    for enc in encodings:
-        try:
-            return raw_bytes.decode(enc)
-        except:
-            continue
-
-    return text# 如果都失败了，返回原始乱码，至少比报错强
+from src.utils import fix_text_encoding
 
 
 def unzip_file(zip_path, extract_to):
@@ -67,16 +39,16 @@ def unzip_file(zip_path, extract_to):
     try:
         with zipfile.ZipFile(zip_path, 'r') as zf:
             for file_info in zf.infolist():
-                # 1. 修复文件名编码
+                # 1. 修复文件名编码 (调用 imported utils 中的工具)
                 original_name = file_info.filename
                 decoded_name = fix_text_encoding(original_name)
 
-                # 2. 过滤 Mac 系统生成的垃圾文件 (关键！)
+                # 2. 过滤 Mac 系统生成的垃圾文件
                 if decoded_name.startswith('__MACOSX') or '._' in decoded_name or decoded_name.endswith('.DS_Store'):
                     continue
 
                 # 3. 重写文件名并解压
-                    # 我们需要保持目录结构，但使用修复后的名字
+                # 我们需要保持目录结构，但使用修复后的名字
                 file_info.filename = decoded_name
                 zf.extract(file_info, extract_to)
 
@@ -133,6 +105,7 @@ def scan_assignment_files(root_path):
                 })
 
     return basic_info
+
 
 def get_raw_zip_file(raw_dir: str) -> str:
     """
