@@ -1,15 +1,50 @@
 # src/utils.py
 """
 模块功能：
-    本模块类似于一个工具箱 (Utility Belt)，存放通用的、不依赖于具体业务逻辑的底层工具函数。
+    本模块类似于一个工具箱，存放通用的、不依赖于具体业务逻辑的底层工具函数。
     1. 打印动态进度条 (UI)
-    2. 文本编码自适应修复 (String Processing)
+    2. 文本编码自适应修复
+    3. 将“x天x小时x分钟x秒”转化为对应的分钟数
 
 依赖关系：
     sys: 打印进度条
+    re: 从字符串中提取出对应的时间正则式
 """
 
 import sys
+import re
+
+
+def parse_time_to_minutes(time_str: str) -> float:
+    """
+        函数功能：
+            将文本耗时转化为总分钟数 (Float)
+
+        Args:
+            time_str (str): 从 pdf 文件中提取出的表示时间的字符串
+
+        Returns:
+            float：统一转化为分钟数并返回
+        """
+    if not time_str or str(time_str).strip() in ["0", "--", "无法判定", "OCR失败"]:
+        return 0.0
+    clean_str = str(time_str).replace(" ", "")#防止读出来带空格的字符串导致无法识别
+    total_minutes = 0.0
+    matches = re.findall(r'(\d+)(天|小时|时|分|秒)', clean_str)
+
+    for val, unit in matches:
+        num = float(val)
+        if unit == '天':
+            total_minutes += num * 24 * 60
+        elif unit in ['时', '小时']:
+            total_minutes += num * 60
+        elif unit == '分':
+            total_minutes += num
+        elif unit == '秒':
+            total_minutes += num / 60.0
+
+    return round(total_minutes, 2)
+
 
 def fix_text_encoding(text):
     """

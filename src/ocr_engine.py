@@ -67,6 +67,8 @@ def ocr_process_pdf(pdf_path):
                     result["状态"] = "未通关"
                 elif "未开启" in full_text:
                     result["状态"] = "未开启"
+                elif "截止后" in full_text and "通关" in full_text:
+                    result["状态"] = "截止后通关"
                 else:
                     if "通关" in full_text and "按时" in full_text:# 防止 ocr 模型误认为“按时 通关”
                         result["状态"] = "按时通关"

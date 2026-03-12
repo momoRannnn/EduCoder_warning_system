@@ -23,7 +23,7 @@ def parse_pdf_report(pdf_path: str) -> dict:
         阅读 pdf 文件，提取其中的文本数据
 
     Args：
-        - pdf_path (str): pdf 文件的路径
+        pdf_path (str): pdf 文件的路径
 
     Returns：
         dict: 包含了状态和持续时间的dict
@@ -59,6 +59,9 @@ def parse_pdf_report(pdf_path: str) -> dict:
                     break
                 elif "未通关" in line:
                     data["状态"] = "未通关"
+                    break
+                elif "截止后" in line and "通关" in line:
+                    data["状态"] = "截止后通关"
                     break
                 elif "未开启" in line:
                     data["状态"] = "未开启"

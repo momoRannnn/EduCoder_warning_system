@@ -14,12 +14,13 @@ import os
 import time
 import multiprocessing
 from concurrent.futures import ProcessPoolExecutor
+import pandas as pd
 
-# --- 模块导入 (Imports) ---
+# --- 模块导入 ---
 from src.raw_file_processor import unzip_file, scan_assignment_files, get_raw_zip_file
 from src.pdf_handler import enrich_data
-from src.exporter import save_to_excel
 from src.utils import print_progress
+from src.layer import classify
 
 # --- 1.全局路径配置 ---
 # 使用相对路径确保跨平台兼容性
@@ -32,7 +33,7 @@ OUTPUT_FILE = os.path.join(BASE_DIR, "data", "2_final_report.xlsx")
 def main():
 
     print("=== EduCoder 预警系统启动 (Phase 2 Refactored) ===")
-    # 1. 数据摄入 (Data Ingestion)
+    # 1. 数据摄入
     # 1.1 获取源文件
     zip_path = get_raw_zip_file(RAW_DIR)
     if not zip_path:
@@ -51,12 +52,9 @@ def main():
         print("[Warn] 未扫描到 PDF 文件。")
         return
 
-    # 2. 资源调度 (Resource Scheduling)
-    # 获取 CPU 核心数
-    cpu_count = os.cpu_count() or 1
-
-    # 策略：N-2 策略 (高性能机型) 或 N-1 策略 (普通机型)，保底 1 进程
-    if cpu_count > 4:
+    # 2. 资源调度
+    cpu_count = os.cpu_count() or 1# 获取 CPU 核心数
+    if cpu_count > 4:# 策略：N-2 策略 (高性能机型) 或 N-1 策略 (普通机型)，保底 1 进程
         workers = cpu_count - 2
     else:
         workers = max(1, cpu_count - 1)
@@ -65,11 +63,10 @@ def main():
     print(f"[任务启动] 准备处理 {total_files} 份作业数据...")
     print("-" * 50)
 
-    # 3. 并行计算 (Parallel Computing)
+    # 3. 并行计算
     start_time = time.time()
     results = []
-
-    # 启动进程池
+        # 启动进程池
     with ProcessPoolExecutor(max_workers=workers) as executor:
         # Map: 将 "基础数据" 映射给 "enrich_data" 函数
         # enrich_data 会负责调用 pdfplumber/OCR 并合并结果
@@ -83,11 +80,21 @@ def main():
     duration = time.time() - start_time
     print(f"\n\n[执行完毕] 总耗时: {duration:.2f}s | 平均速度: {duration / total_files:.2f}s/file")
 
-    # 4. 数据交付 (Data Delivery)
-    save_to_excel(results, OUTPUT_FILE)
+    # 4. 对学生进行分类
+    print("\n[阶段2] 正在构建 Pandas 模型并进行分层预警...")
+    df_result = classify(results)
+
+    # 设置 Pandas 在控制台的打印格式（解决中英文对齐问题）
+    pd.set_option('display.unicode.ambiguous_as_wide', True)
+    pd.set_option('display.unicode.east_asian_width', True)
+
+    print("\n=== EduCoder 预警分类结果预览 ===")
+    print(df_result.to_string(index=False))
+
+    print("\n=== EduCoder 预警系统启动 (Phase 2 结束) ===")
 
 
 if __name__ == '__main__':
-    # 跨平台多进程保护 (Windows/macOS 必需)
+    # 跨平台多进程保护
     multiprocessing.freeze_support()
     main()
